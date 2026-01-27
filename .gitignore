@@ -1,0 +1,11 @@
+# Environment variables (contains secrets)
+.env
+
+# Caddy data and certificates
+data/
+caddy_config/
+
+# Mailserver data
+mailserver/
+
+# Database volume is managed by Docker

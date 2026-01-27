@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+# Create Roundcube database and user
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE USER $POSTGRES_NO_ROOT_USER WITH PASSWORD '$POSTGRES_NO_ROOT_PASSWORD';
+    CREATE DATABASE roundcubemail OWNER $POSTGRES_NO_ROOT_USER;
+    GRANT ALL PRIVILEGES ON DATABASE roundcubemail TO $POSTGRES_NO_ROOT_USER;
+EOSQL

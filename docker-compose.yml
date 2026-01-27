@@ -6,6 +6,9 @@ services:
     image: caddy:2.8
     container_name: caddy
     restart: unless-stopped
+    environment:
+      - DOMAIN_NAME
+      - LETSENCRYPT_EMAIL
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - ./data:/data
@@ -46,6 +49,12 @@ services:
     hostname: mail
     domainname: ${DOMAIN_NAME}
     env_file: mailserver.env
+    environment:
+      - SSL_CERT_PATH=/certs/mail.${DOMAIN_NAME}.crt
+      - SSL_KEY_PATH=/certs/mail.${DOMAIN_NAME}.key
+      - HOSTNAME=mail.${DOMAIN_NAME}
+      - DOMAINNAME=${DOMAIN_NAME}
+      - POSTMASTER_ADDRESS=postmaster@${DOMAIN_NAME}
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.ssl-reload.schedule: "0 3 * * 0"
@@ -96,7 +105,7 @@ services:
     depends_on:
       - postgres
       - mailserver
-   
+
 networks:
   no-internet:
     driver: bridge
