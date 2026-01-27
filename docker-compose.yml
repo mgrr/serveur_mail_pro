@@ -1,0 +1,105 @@
+volumes:
+  db_storage:
+
+services:
+  caddy:
+    image: caddy:2.8
+    container_name: caddy
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./data:/data
+      - ./caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - no-internet
+      - internet
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_NO_ROOT_USER
+      - POSTGRES_NO_ROOT_PASSWORD
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+      - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    networks:
+      - no-internet
+  scheduler:
+    image: mcuadros/ofelia:latest
+    container_name: scheduler
+    restart: unless-stopped
+    depends_on:
+      - mailserver
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  mailserver:
+    image: mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: mail
+    domainname: ${DOMAIN_NAME}
+    env_file: mailserver.env
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.ssl-reload.schedule: "0 3 * * 0"
+      ofelia.job-exec.ssl-reload.command: "supervisorctl restart postfix dovecot"
+    ports:
+      - "25:25"
+      - "587:587"
+      - "993:993"
+    volumes:
+      - ./mailserver/data:/var/mail
+      - ./mailserver/config:/tmp/docker-mailserver
+      - /etc/localtime:/etc/localtime:ro
+      - ./data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/mail.${DOMAIN_NAME}:/certs:ro
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    networks:
+      - internet
+  roundcube:
+    build: ./.docker/roundcube
+    image: roundcube-custom:latest
+    container_name: roundcube
+    environment:
+      # IMAP
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mailserver
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      # SMTP
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://mailserver
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+      ROUNDCUBEMAIL_SMTP_USER: "%u"
+      ROUNDCUBEMAIL_SMTP_PASS: "%p"
+      ROUNDCUBEMAIL_SMTP_AUTH_TYPE: LOGIN
+      # Certificat self-signed (IMPORTANT)
+      ROUNDCUBEMAIL_IMAP_SSL_VERIFY_PEER: "false"
+      ROUNDCUBEMAIL_IMAP_SSL_VERIFY_PEER_NAME: "false"
+      ROUNDCUBEMAIL_SMTP_SSL_VERIFY_PEER: "false"
+      ROUNDCUBEMAIL_SMTP_SSL_VERIFY_PEER_NAME: "false"
+      ROUNDCUBEMAIL_DB_TYPE: pgsql
+      ROUNDCUBEMAIL_DB_HOST: postgres
+      ROUNDCUBEMAIL_DB_PORT: 5432
+      ROUNDCUBEMAIL_DB_USER: ${POSTGRES_NO_ROOT_USER}
+      ROUNDCUBEMAIL_DB_PASSWORD: ${POSTGRES_NO_ROOT_PASSWORD}
+      ROUNDCUBEMAIL_DB_NAME: ${DATABASE_NAME}
+    restart: unless-stopped
+    networks:
+      - internet
+      - no-internet
+    depends_on:
+      - postgres
+      - mailserver
+   
+networks:
+  no-internet:
+    driver: bridge
+    internal: true
+  internet:
+    driver: bridge

@@ -1,0 +1,14 @@
+mail.domaine_a_changer.fr {
+    tls {
+        issuer acme {
+            email email_a_changer@gmail.com
+       }
+    }
+    # Redirection HTTP vers HTTPS
+    @http {
+        protocol http
+    }
+    redir @http https://{host}{uri}
+
+    reverse_proxy roundcube:80
+}
