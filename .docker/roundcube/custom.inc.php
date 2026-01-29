@@ -16,3 +16,6 @@ $config['smtp_conn_options'] = array(
 $config['smtp_user'] = '%u';
 $config['smtp_pass'] = '%p';
 $config['plugins'] = array_merge($config['plugins'], ['twofactor_gauthenticator']);
+$config['log_logins'] = true;
+$config['login_autocomplete'] = 0;
+$config['max_recipients'] = 50;
